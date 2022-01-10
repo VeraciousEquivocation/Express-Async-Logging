@@ -1,0 +1,73 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable no-console */
+/* eslint-disable class-methods-use-this */
+
+import {NextFunction, Request, Response } from 'express'
+import crypto from 'crypto'
+import { AsyncLocalStorage } from 'async_hooks'
+
+export interface RequestContext {
+    [key: string]: string | string[] | undefined;
+}
+
+export enum ETrackKey {
+    'X-Request-ID' = 'X-Request-ID',
+    'X-Correlation-ID' = 'X-Correlation-ID',
+    'trackId' = 'trackId',
+}
+
+class ContextAsyncHooksClass {
+    private static instance: ContextAsyncHooksClass
+
+    public asyncLocalStorage: AsyncLocalStorage<any>
+
+    public trackKey: ETrackKey = ETrackKey.trackId;
+    
+    private constructor() {
+      this.asyncLocalStorage = new AsyncLocalStorage<any>();
+    }
+    
+
+    public getExpressMiddlewareTracking(): any {
+      return (request: Request, response: Response, next: NextFunction): void => {
+        const context = this.getTrackId(request.headers);
+        this.setContext(context);
+        response.setHeader(this.trackKey, context[this.trackKey] as string);
+        next();
+      };
+    }
+
+    public setContext(data: RequestContext): void {
+      let oldData = this.getContext();
+      oldData = { ...oldData, ...data };
+      this.asyncLocalStorage.enterWith(oldData);
+    }
+
+    public getTrackId(data: RequestContext): RequestContext {
+      // eslint-disable-next-line prefer-object-spread
+      const requestInfo = Object.assign({}, this.trackKey) as any;
+
+      if (data && data[this.trackKey])
+          requestInfo[this.trackKey] = data[this.trackKey];
+      else {
+          const tId = crypto.randomBytes(8).toString('hex')
+          requestInfo[this.trackKey] = tId;
+      }
+
+      return requestInfo;
+    }
+    
+    public getContext(): RequestContext | undefined {
+      return this.asyncLocalStorage.getStore();
+    }
+    
+    public static getInstance(): ContextAsyncHooksClass {
+      if (!ContextAsyncHooksClass.instance) {
+        ContextAsyncHooksClass.instance = new ContextAsyncHooksClass();
+      }
+      return ContextAsyncHooksClass.instance;
+    }
+}
+
+export const ContextAsyncHooks = ContextAsyncHooksClass.getInstance();

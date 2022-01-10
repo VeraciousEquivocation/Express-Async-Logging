@@ -2,19 +2,24 @@ import express, {NextFunction, Request, Response} from 'express';
 import {theAppRouter} from './routes'
 import {errorHandler} from './common/errors/ErrorHandler'
 
+import { ContextAsyncHooks, ETrackKey } from './common/hooks/ContextHook';
+import { LoggerTraceability } from './common/Logger';
+
 const app = express();
+const Logger = LoggerTraceability.getInstance().getLogger()
+
+ContextAsyncHooks.trackKey = ETrackKey['X-Correlation-ID']
 
 const port = '3000';
 
 app.listen(port, () => {
-    console.log(`App is listening on port ${port}`);
+    Logger.info(`App is listening on port ${port}`);
 })
 
 // handle json messages
 app.use(express.json())
 
-// where we handle our winston logging
-//app.use(LOGGIN)
+app.use(ContextAsyncHooks.getExpressMiddlewareTracking())
 
 app.use('/our-api/routes',theAppRouter)
 
@@ -23,4 +28,4 @@ app.use(async (error: Error, req: Request, res: Response, next:NextFunction) => 
     await errorHandler.handleError(error, res)
 })
 
-console.log('APPLICATION STARTED')
+Logger.info('APPLICATION HAS STARTED')

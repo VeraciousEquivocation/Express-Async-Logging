@@ -1,7 +1,11 @@
 import express, {NextFunction,Request,Response} from 'express'
 import {AuthenticationError,ServerError} from '../common/errors'
+import { secondHop } from './services'
 
 import httpStatus from 'http-status'
+import { LoggerTraceability } from '../common/Logger'
+
+const Logger = LoggerTraceability.getInstance().getLogger()
 
 const theAppRouter = express.Router()
 
@@ -22,4 +26,8 @@ theAppRouter.post('/login', async(req: Request, res: Response, next: NextFunctio
     } catch (err) {
         next(err)
     }
+})
+theAppRouter.get('/hops', async(req: Request, res: Response, next: NextFunction) => {
+    Logger.http('THE FIRST HOP')
+    secondHop(next)
 })
